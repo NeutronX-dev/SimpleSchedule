@@ -13,8 +13,6 @@
 
 # <p align="center">Preview</p>
 
----
-
 ### No Items
 <a src="./logos/screenshot/1.0.0/items.png">
     <img align="left" height="100" width=100 src="./logos/screenshot/1.0.0/items.png">
@@ -24,9 +22,6 @@
 ```json
 []
 ```
-
----
-
 
 ---
 
@@ -42,8 +37,6 @@
 
 ---
 
----
-
 ### With Items
 <a src="./logos/screenshot/1.0.0/items.png">
     <img align="left" height="100" width=100 src="./logos/screenshot/1.0.0/items.png">
@@ -56,8 +49,6 @@
 
 ---
 
----
-
 ### Add Items
 <a src="./logos/screenshot/1.0.0/event-triggered.png">
     <img align="right" height="100" width=100 src="./logos/screenshot/1.0.0/event-triggered.png">
@@ -67,8 +58,6 @@
 ```json
 [ { "title": "Class", "time": 1641522463165 } ]
 ```
-
----
 
 # Exit Codes
 * Loading Errors (3-5)
