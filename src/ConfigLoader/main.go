@@ -11,13 +11,6 @@ type Schedule struct {
 	Time  int64  `json:"time"`
 }
 
-func remove(slice []*Schedule, s int) []*Schedule {
-	if len(slice) == 1 {
-		return make([]*Schedule, 0)
-	}
-	return append(slice[:s], slice[s+1:]...)
-}
-
 func (schedule *Schedule) HasPassed() bool {
 	return time.Now().UnixMilli() >= schedule.Time
 }
@@ -38,7 +31,7 @@ func (schedules *Schedules) Access(index int) *Schedule {
 func (schedules *Schedules) HasPassed() []*Schedule {
 	var res []*Schedule = make([]*Schedule, 0)
 	for _, v := range schedules.data {
-		if time.Now().UnixMilli() >= v.Time {
+		if v.HasPassed() {
 			res = append(res, v)
 		}
 	}
@@ -46,11 +39,13 @@ func (schedules *Schedules) HasPassed() []*Schedule {
 }
 
 func (schedules *Schedules) RemovePassed() error {
-	for i, v := range schedules.data {
-		if time.Now().UnixMilli() >= v.Time {
-			schedules.data = remove(schedules.data, i)
+	var res []*Schedule = make([]*Schedule, 0)
+	for _, v := range schedules.data {
+		if time.Now().UnixMilli() <= v.Time {
+			res = append(res, v)
 		}
 	}
+	schedules.data = res
 	return schedules.Save()
 }
 

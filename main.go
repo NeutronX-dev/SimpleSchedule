@@ -23,13 +23,8 @@ const (
 	SS_VERSION = "1.0.0"
 )
 
-func Check(ErrorChannel chan error, CloseChannel chan bool, Schedules ConfigLoader.Schedules, Table *widget.Table, requestFocus func()) {
+func Check(ErrorChannel chan error, CloseChannel chan bool, Schedules *ConfigLoader.Schedules, Table *widget.Table, requestFocus func(), DisplayError func(error), EventPassed func(*ConfigLoader.Schedule)) {
 	f, err := os.Open("./assets/notification.mp3")
-	if err != nil {
-		ErrorChannel <- err
-		return
-	}
-
 	if err != nil {
 		ErrorChannel <- err
 		return
@@ -37,22 +32,33 @@ func Check(ErrorChannel chan error, CloseChannel chan bool, Schedules ConfigLoad
 
 	streamer, format, err := mp3.Decode(f)
 	if err != nil {
+		ErrorChannel <- err
 		return
 	}
-	defer streamer.Close()
+
+	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+
+	ErrorChannel <- nil
 
 	for {
 		select {
 		case <-CloseChannel:
 			os.Exit(4)
+			streamer.Close()
 		default:
 			Passed := Schedules.HasPassed()
 			if len(Passed) >= 1 {
-				ErrorChannel <- Schedules.RemovePassed()
-				requestFocus()
-				speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
-				speaker.Play(beep.Seq(streamer, beep.Callback(func() {})))
+				err := Schedules.RemovePassed()
+				if err != nil {
+					DisplayError(err)
+				}
 				Table.Refresh()
+				for _, v := range Passed {
+					EventPassed(v)
+				}
+				streamer.Seek(0)
+				requestFocus()
+				speaker.Play(beep.Seq(streamer, beep.Callback(func() {})))
 			}
 		}
 		time.Sleep(time.Second * 1)
@@ -63,7 +69,7 @@ func Check(ErrorChannel chan error, CloseChannel chan bool, Schedules ConfigLoad
 func main() {
 	Application := app.New()
 	Window := Application.NewWindow("SimpleSchedule")
-	Window.Resize(fyne.NewSize(523, 360))
+	Window.Resize(fyne.NewSize(540, 360))
 
 	Schedules, _ := ConfigLoader.ReadCFG("./schedules.json")
 
@@ -76,7 +82,7 @@ func main() {
 	GUI_TABLE := widget.NewTable(func() (int, int) {
 		return Schedules.ScheduleAmounts() + 1, 4
 	}, func() fyne.CanvasObject {
-		return widget.NewLabel("...")
+		return widget.NewLabel("............................")
 	}, func(id widget.TableCellID, cell fyne.CanvasObject) {
 		label := cell.(*widget.Label)
 
@@ -135,7 +141,11 @@ func main() {
 
 	ErrorChannel := make(chan error)
 	CloseChannel := make(chan bool)
-	go Check(ErrorChannel, CloseChannel, Schedules, GUI_TABLE, Window.RequestFocus)
+	go Check(ErrorChannel, CloseChannel, &Schedules, GUI_TABLE, Window.RequestFocus, func(e error) {
+		dialog.ShowError(e, Window)
+	}, func(s *ConfigLoader.Schedule) {
+		dialog.ShowInformation(s.Title, fmt.Sprintf("Look like you have an event named '%v'.", s.Title), Window)
+	})
 	err := <-ErrorChannel
 	if err != nil {
 		dialog.ShowError(err, Window)
@@ -143,7 +153,6 @@ func main() {
 
 	Application.Lifecycle().SetOnStopped(func() {
 		CloseChannel <- true
-		fmt.Println("Asked to exit")
 	})
 
 	Window.SetContent(container.NewBorder(GUI_HEADER, container.NewAdaptiveGrid(1, container.NewHBox(GUI_ADD_BTN, GUI_UPDATE_BTN)), nil, nil, GUI_TABLE))
