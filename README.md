@@ -14,7 +14,7 @@
 # <p align="center">Preview</p>
 
 ### No Items
-<a src="./logos/screenshot/1.0.0/items.png">
+<a src="./logos/screenshot/1.0.0/no-items.png">
     <img align="left" height="100" width=100 src="./logos/screenshot/1.0.0/items.png">
 </a>
 
