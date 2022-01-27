@@ -2,159 +2,242 @@ package main
 
 import (
 	"fmt"
-	"main/src/ConfigLoader"
+	"log"
 	"os"
+	"os/exec"
+	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/validation"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/faiface/beep"
-	"github.com/faiface/beep/mp3"
-	"github.com/faiface/beep/speaker"
+	"github.com/pkg/browser"
+
+	"main/src/AudioPlayer"
+	"main/src/ConfigLoader"
+	"main/src/EventManager"
 )
 
 const (
-	SS_VERSION = "1.0.0"
+	SS_VERSION = "1.0.1"
+
+	GUI_HEIGHT = 360
+	GUI_WIDTH  = 540
 )
 
-func Check(ErrorChannel chan error, CloseChannel chan bool, Schedules *ConfigLoader.Schedules, Table *widget.Table, requestFocus func(), DisplayError func(error), EventPassed func(*ConfigLoader.Schedule)) {
-	f, err := os.Open("./assets/notification.mp3")
-	if err != nil {
-		ErrorChannel <- err
-		return
+func OpenBrowser(url string) {
+	var err error
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
 	}
-
-	streamer, format, err := mp3.Decode(f)
 	if err != nil {
-		ErrorChannel <- err
-		return
+		log.Fatal(err)
 	}
+}
 
-	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
-
-	ErrorChannel <- nil
-
+func Check(Close chan bool, Error chan error, Events *EventManager.EventList, Table *widget.Table, Player *AudioPlayer.AudioPlayer, cfg *ConfigLoader.Config, requestFocus func(), DisplayError func(error), EventPassed func(*EventManager.Event)) {
 	for {
 		select {
-		case <-CloseChannel:
+		case <-Close:
 			os.Exit(4)
-			streamer.Close()
+			Player.Close()
 		default:
-			Passed := Schedules.HasPassed()
-			if len(Passed) >= 1 {
-				err := Schedules.RemovePassed()
+			Passed := Events.PassedEvents()
+			if len(Passed) > 0 {
+				err := Events.RemovePassed()
 				if err != nil {
 					DisplayError(err)
 				}
 				Table.Refresh()
 				for _, v := range Passed {
-					EventPassed(v)
+					if time.Now().UnixMilli() >= v.UnixTimestamp {
+						if cfg.Instructive && strings.HasPrefix(v.Title, "i:") {
+							if strings.HasPrefix(v.Title, "i:OPEN[") && v.Title[len(v.Title)-1] == ']' {
+								v.Title = v.Title[7 : len(v.Title)-1]
+								fmt.Println(v.Title)
+								browser.OpenURL(v.Title)
+							} else {
+								DisplayError(fmt.Errorf("Error analyzing Instructive Command"))
+							}
+						} else {
+							EventPassed(v)
+						}
+						Player.Play()
+					}
 				}
-				streamer.Seek(0)
-				requestFocus()
-				speaker.Play(beep.Seq(streamer, beep.Callback(func() {})))
 			}
 		}
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * cfg.CheckIntervalDuration())
 	}
-
 }
 
 func main() {
+	Events, err := EventManager.ReadEvents("./schedules.json")
+	if err != nil {
+		os.Exit(3)
+	}
+
+	Config, err := ConfigLoader.ReadConfig("./config.json")
+	if err != nil {
+		os.Exit(3)
+	}
+
+	Player, err := AudioPlayer.New(Config.AudioPath)
+	if err != nil {
+		os.Exit(3)
+	}
+
 	Application := app.New()
 	Window := Application.NewWindow("SimpleSchedule")
-	Window.Resize(fyne.NewSize(540, 360))
-
-	Schedules, _ := ConfigLoader.ReadCFG("./schedules.json")
+	Window.Resize(fyne.NewSize(GUI_WIDTH, GUI_HEIGHT))
+	Window.SetFixedSize(true)
 
 	// Header
-	GUI_TITLE := widget.NewLabel("SimpleSchedule")
-	GUI_VERSION := widget.NewLabel(SS_VERSION)
-	GUI_HEADER := container.NewHBox(GUI_TITLE, GUI_VERSION)
+	GUI_LOGO := canvas.NewImageFromFile("./logos/noBG-1000x1000-SimpleSchedule.png")
+	GUI_LOGO.SetMinSize(fyne.NewSize(40, 40))
+	GUI_LOGO.Resize(fyne.NewSize(40, 40))
+	GUI_LOGO.FillMode = canvas.ImageFillContain
 
-	// Main Table
 	GUI_TABLE := widget.NewTable(func() (int, int) {
-		return Schedules.ScheduleAmounts() + 1, 4
+		return len(Events.Events) + 1, 2
 	}, func() fyne.CanvasObject {
-		return widget.NewLabel("............................")
+		return widget.NewLabel("---- Unable To Load ----")
 	}, func(id widget.TableCellID, cell fyne.CanvasObject) {
 		label := cell.(*widget.Label)
 
 		if id.Row == 0 {
 			switch id.Col {
 			case 0:
-				label.SetText("ID")
-			case 1:
 				label.SetText("Title")
-			case 2:
+			case 1:
 				label.SetText("Time")
-			case 3:
-				label.SetText("Has Passed")
 			}
 			return
 		}
-
-		schedule := Schedules.Access(id.Row - 1)
+		Evnt, _ := Events.GetEvent(id.Row - 1)
 		switch id.Col {
 		case 0:
-			label.SetText(fmt.Sprintf("%v", id.Row-1))
+			if strings.HasPrefix(Evnt.Title, "i:") && Config.Instructive {
+				label.SetText("(Instructive)")
+			} else {
+				label.SetText(Evnt.Title)
+			}
 		case 1:
-			label.SetText(schedule.Title)
-		case 2:
-			label.SetText(fmt.Sprintf("%v", schedule.Time))
-		case 3:
-			label.SetText(fmt.Sprintf("%v", schedule.HasPassed()))
+			dat := time.UnixMilli(Evnt.UnixTimestamp)
+			_, month, day := dat.Date()
+			hour, min, sec := dat.Clock()
+			var min_str string = fmt.Sprintf("%v", min)
+			var suffix string = "A.M."
+			if hour > 12 {
+				hour -= 12
+				suffix = "P.M."
+			}
+			if min < 10 {
+				min_str = fmt.Sprintf("0%v", min)
+			}
+			label.SetText(fmt.Sprintf("%v %v   at   %v:%v:%v %v", month.String(), day, hour, min_str, sec, suffix))
+
 		}
 	})
-
-	// Buttons
-	GUI_ADD_BTN := widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), func() {
-		Title := widget.NewEntry()
-		Title.Validator = validation.NewRegexp(`^[A-Za-z0-9_-]+$`, "Title can only contain letters, numbers, '_', and '-'")
-		UnixTime := widget.NewEntry()
-		UnixTime.Validator = validation.NewRegexp(`[0-9]+`, "Unix Timestamp can only be a Number")
+	GUI_ADD_BUTTON := widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), func() {
+		title := widget.NewEntry()
+		unix := widget.NewEntry()
+		unix.Validator = validation.NewRegexp(`^[0-9]*$`, "Unix Timestamp ONLY have Numbers")
 		items := []*widget.FormItem{
-			widget.NewFormItem("Title", Title),
-			widget.NewFormItem("Unix Timestamp", UnixTime),
+			widget.NewFormItem("Title", title),
+			widget.NewFormItem("Unix Timestamp", unix),
 		}
 
-		dialog.ShowForm("Add Event", "Add", "Cancel", items, func(b bool) {
-			if !b {
-				return
+		form := dialog.NewForm("Add Event", "Add Event", "Cancel", items, func(b bool) {
+			if b {
+				i, err := strconv.Atoi(unix.Text)
+				if err != nil {
+					dialog.ShowError(err, Window)
+					return
+				}
+				Events.AddEvent(title.Text, int64(i))
+				GUI_TABLE.Refresh()
 			}
-			i, err := strconv.Atoi(UnixTime.Text)
+		}, Window)
+		form.Resize(fyne.NewSize(GUI_WIDTH, GUI_HEIGHT))
+
+		form.SetDismissText("Nevermind")
+		form.Show()
+
+	})
+	GUI_SETTING_BUTTON := widget.NewButtonWithIcon("", theme.SettingsIcon(), func() {
+
+		NotificationSoundLabel := widget.NewEntry()
+		NotificationSoundLabel.SetText(Config.AudioPath)
+
+		Instructive := widget.NewCheck("", func(b bool) {
+			Config.Instructive = b
+			err := Config.Save()
 			if err != nil {
 				dialog.ShowError(err, Window)
-				return
 			}
-			Schedules.AddSchedule(Title.Text, int64(i))
-			GUI_TABLE.Refresh()
-		}, Window)
-	})
-	GUI_UPDATE_BTN := widget.NewButtonWithIcon("Update", theme.ViewRefreshIcon(), GUI_TABLE.Refresh)
+		})
 
-	ErrorChannel := make(chan error)
-	CloseChannel := make(chan bool)
-	go Check(ErrorChannel, CloseChannel, &Schedules, GUI_TABLE, Window.RequestFocus, func(e error) {
+		Instructive.Checked = Config.Instructive
+
+		ConfigForm := &widget.Form{
+			Items: []*widget.FormItem{
+				{Text: "Sound", Widget: container.NewAdaptiveGrid(2, NotificationSoundLabel, widget.NewButton("Set", func() {
+					Config.AudioPath = NotificationSoundLabel.Text
+					err := Config.Save()
+					if err != nil {
+						dialog.ShowError(err, Window)
+					}
+				}))},
+				{Text: "Instructive", Widget: Instructive},
+			},
+		}
+
+		InfoTab := &widget.Form{
+			Items: []*widget.FormItem{
+				{Text: "Version", Widget: widget.NewLabel(SS_VERSION)},
+			},
+		}
+
+		ConfigForm.Resize(fyne.NewSize(GUI_WIDTH-300, GUI_HEIGHT))
+
+		SettingsTab := container.NewVBox(ConfigForm, widget.NewSeparator(), InfoTab)
+
+		ConfigDialog := dialog.NewCustom("Config & Info", "Close", container.NewAdaptiveGrid(2, SettingsTab), Window)
+		ConfigDialog.Resize(fyne.NewSize(GUI_WIDTH-300, GUI_HEIGHT))
+		ConfigDialog.Show()
+
+	})
+	GUI_HEADER := container.NewAdaptiveGrid(2, container.NewHBox(GUI_LOGO), container.NewHBox(layout.NewSpacer(), GUI_ADD_BUTTON, GUI_SETTING_BUTTON))
+
+	Window.SetContent(container.NewBorder(GUI_HEADER, nil, nil, nil, GUI_TABLE))
+	var CloseChannel chan bool = make(chan bool)
+	var ErrorChannel chan error = make(chan error)
+
+	go Check(CloseChannel, ErrorChannel, Events, GUI_TABLE, Player, Config, Window.RequestFocus, func(e error) {
 		dialog.ShowError(e, Window)
-	}, func(s *ConfigLoader.Schedule) {
-		dialog.ShowInformation(s.Title, fmt.Sprintf("Look like you have an event named '%v'.", s.Title), Window)
+	}, func(e *EventManager.Event) {
+		dialog.ShowInformation("Event", fmt.Sprintf("Looks like you have an event named \"%v\".", e.Title), Window)
 	})
-	err := <-ErrorChannel
-	if err != nil {
-		dialog.ShowError(err, Window)
-	}
 
-	Application.Lifecycle().SetOnStopped(func() {
+	Window.SetOnClosed(func() {
 		CloseChannel <- true
 	})
 
-	Window.SetContent(container.NewBorder(GUI_HEADER, container.NewAdaptiveGrid(1, container.NewHBox(GUI_ADD_BTN, GUI_UPDATE_BTN)), nil, nil, GUI_TABLE))
 	Window.ShowAndRun()
 }
