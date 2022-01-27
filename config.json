@@ -1,0 +1,6 @@
+{
+	"Path": "./config.json",
+	"check_interval": 1,
+	"instructive": true,
+	"audio_path": "./assets/notification.mp3"
+}

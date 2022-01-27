@@ -3,69 +3,30 @@ package ConfigLoader
 import (
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"time"
 )
 
-type Schedule struct {
-	Title string `json:"title"`
-	Time  int64  `json:"time"`
+type Config struct {
+	Path string
+	// Preformance
+	CheckInterval int `json:"check_interval"`
+	// Misc
+	Instructive bool   `json:"instructive"`
+	AudioPath   string `json:"audio_path"`
 }
 
-func (schedule *Schedule) HasPassed() bool {
-	return time.Now().UnixMilli() >= schedule.Time
+func (cfg *Config) CheckIntervalDuration() time.Duration {
+	return time.Duration(cfg.CheckInterval)
 }
 
-type Schedules struct {
-	data []*Schedule
-	path string
-}
-
-func (schedules *Schedules) ScheduleAmounts() int {
-	return len(schedules.data)
-}
-
-func (schedules *Schedules) Access(index int) *Schedule {
-	return schedules.data[index]
-}
-
-func (schedules *Schedules) HasPassed() []*Schedule {
-	var res []*Schedule = make([]*Schedule, 0)
-	for _, v := range schedules.data {
-		if v.HasPassed() {
-			res = append(res, v)
-		}
-	}
-	return res
-}
-
-func (schedules *Schedules) RemovePassed() error {
-	var res []*Schedule = make([]*Schedule, 0)
-	for _, v := range schedules.data {
-		if time.Now().UnixMilli() <= v.Time {
-			res = append(res, v)
-		}
-	}
-	schedules.data = res
-	return schedules.Save()
-}
-
-func (schedules *Schedules) AddSchedule(Title string, UnixTime int64) error {
-	var NewSchedule *Schedule = &Schedule{
-		Title: Title,
-		Time:  UnixTime,
-	}
-	schedules.data = append(schedules.data, NewSchedule)
-
-	return schedules.Save()
-}
-
-func (schedules *Schedules) Save() error {
-	data, err := json.MarshalIndent(schedules.data, "", "\t")
+func (cfg *Config) Save() error {
+	data, err := json.MarshalIndent(cfg, "", "\t")
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(schedules.path, data, 0777)
+	err = ioutil.WriteFile(cfg.Path, data, 0777)
 
 	if err != nil {
 		return err
@@ -74,17 +35,41 @@ func (schedules *Schedules) Save() error {
 	return nil
 }
 
-func ReadCFG(path string) (Schedules, error) {
-	var res Schedules
-	res.path = path
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return res, err
+func ReadConfig(path string) (*Config, error) {
+	var res *Config = &Config{Path: path, CheckInterval: 1000, AudioPath: "./assets/notification.mp3"}
+
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		dat, err := ioutil.ReadFile(path)
+		if err != nil {
+			return res, err
+		}
+
+		err = json.Unmarshal(dat, &res)
+		if err != nil {
+			return res, err
+		}
+		return res, nil
+	} else {
+		err := CreateConfig(path, res)
+		if err != nil {
+			return res, err
+		} else {
+			return res, nil
+		}
 	}
-	err = json.Unmarshal(data, &res.data)
+}
+
+func CreateConfig(path string, cfg *Config) error {
+	data, err := json.MarshalIndent(cfg, "", "\t")
 	if err != nil {
-		return res, err
+		return err
 	}
 
-	return res, nil
+	err = ioutil.WriteFile(path, data, 0777)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
