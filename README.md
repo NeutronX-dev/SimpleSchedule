@@ -15,7 +15,7 @@
 
 ### No Items
 <a src="./logos/screenshot/1.0.1/items.png">
-    <img align="left" height="100" width=100 src="./logos/screenshot/1.0.0/no-items.png">
+    <img align="left" height="100" width=100 src="./logos/screenshot/1.0.1/no-items.png">
 </a>
 
 #### This is what the program will look like when it is first installed, or you have no upcoming events
@@ -27,7 +27,7 @@
 
 ### Add Items
 <a src="./logos/screenshot/1.0.1/add-item.png">
-    <img align="right" height="100" width=100 src="./logos/screenshot/1.0.0/add-item.png">
+    <img align="right" height="100" width=100 src="./logos/screenshot/1.0.1/add-item.png">
 </a>
 
 #### This is what the program will look like when you click on the "+ Add" Button
@@ -39,7 +39,7 @@
 
 ### With Items
 <a src="./logos/screenshot/1.0.1/items.png">
-    <img align="left" height="100" width=100 src="./logos/screenshot/1.0.0/items.png">
+    <img align="left" height="100" width=100 src="./logos/screenshot/1.0.1/items.png">
 </a>
 
 #### This is what the program will look like when you add an event.
@@ -51,7 +51,7 @@
 
 ### Event Past
 <a src="./logos/screenshot/1.0.1/event-triggered.png">
-    <img align="right" height="100" width=100 src="./logos/screenshot/1.0.0/event-triggered.png">
+    <img align="right" height="100" width=100 src="./logos/screenshot/1.0.1/event-triggered.png">
 </a>
 
 #### This is what the program will look like when the time of an event passed. (as well as a sound effect)
