@@ -19,15 +19,16 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/pkg/browser"
 
 	"main/src/AudioPlayer"
 	"main/src/ConfigLoader"
 	"main/src/EventManager"
+	Inst "main/src/Instructive"
+	SS_Main "main/src/SS_Custom"
 )
 
 const (
-	SS_VERSION = "1.0.1"
+	SS_VERSION = "1.0.2"
 
 	GUI_HEIGHT = 360
 	GUI_WIDTH  = 540
@@ -66,16 +67,29 @@ func Check(Close chan bool, Error chan error, Events *EventManager.EventList, Ta
 				Table.Refresh()
 				for _, v := range Passed {
 					if time.Now().UnixMilli() >= v.UnixTimestamp {
+						SS_Main.Custom_Main(v.Title, v.UnixTimestamp)
+						/*^^^^^^^^^^^^^^^^^^^^^^^^^^
+						  |     Custom Callback    |
+						  +------------------------+
+						  |        Found on        |
+						  | /src/SS_Custom/main.go |
+						  +------------------------+ */
 						if cfg.Instructive && strings.HasPrefix(v.Title, "i:") {
-							if strings.HasPrefix(v.Title, "i:OPEN[") && v.Title[len(v.Title)-1] == ']' {
-								v.Title = v.Title[7 : len(v.Title)-1]
-								fmt.Println(v.Title)
-								browser.OpenURL(v.Title)
+							ParsedInstruction, err := Inst.ParseInstructions(v.Title)
+							if err != nil {
+								DisplayError(err)
 							} else {
-								DisplayError(fmt.Errorf("Error analyzing Instructive Command"))
+								for _, Instruction := range ParsedInstruction {
+									requestFocus()
+									err = Instruction.Execute()
+									if err != nil {
+										DisplayError(err)
+									}
+								}
 							}
 						} else {
 							EventPassed(v)
+							requestFocus()
 						}
 						Player.Play()
 					}
@@ -133,7 +147,7 @@ func main() {
 		switch id.Col {
 		case 0:
 			if strings.HasPrefix(Evnt.Title, "i:") && Config.Instructive {
-				label.SetText("(Instructive)")
+				label.SetText("[Instructive(s)]")
 			} else {
 				label.SetText(Evnt.Title)
 			}
@@ -151,7 +165,6 @@ func main() {
 				min_str = fmt.Sprintf("0%v", min)
 			}
 			label.SetText(fmt.Sprintf("%v %v   at   %v:%v:%v %v", month.String(), day, hour, min_str, sec, suffix))
-
 		}
 	})
 	GUI_ADD_BUTTON := widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), func() {
@@ -205,6 +218,10 @@ func main() {
 					}
 				}))},
 				{Text: "Instructive", Widget: Instructive},
+				{Text: "", Widget: widget.NewButton("Reload Events", func() {
+					Events, _ = EventManager.ReadEvents("./schedules.json")
+					GUI_TABLE.Refresh()
+				})},
 			},
 		}
 
