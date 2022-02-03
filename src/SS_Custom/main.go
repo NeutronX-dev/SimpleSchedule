@@ -1,7 +1,7 @@
 package SS_Main
 
 /*
-    +--------------------- IMPORTING ---------------------+
+        +--------------------- IMPORTING ---------------------+
 	|          To import other things in the same         |
 	|            "/src/" folder simply include            |
 	+-----------------------------------------------------+
@@ -9,7 +9,7 @@ package SS_Main
 	+-----------------------------------------------------+
 
 	+------------- CUSTOM AUDIO IN CALLBACK --------------+
-    |   If you want a certain audio to be played in a     |
+        |   If you want a certain audio to be played in a     |
 	|        a custom callback you can import             |
 	|     "main/src/AudioPlayer"' and call the New()      |
 	|   Function with the path as a parameter. It will    |
@@ -20,4 +20,5 @@ package SS_Main
 */
 
 func Custom_Main(EventTitle string, EventTimestamp int64) {
+	// ...
 }
