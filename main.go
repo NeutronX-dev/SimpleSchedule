@@ -2,10 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -28,27 +25,18 @@ import (
 )
 
 const (
-	SS_VERSION = "1.0.2"
+	SS_VERSION = "1.0.3"
 
 	GUI_HEIGHT = 360
 	GUI_WIDTH  = 540
 )
 
-func OpenBrowser(url string) {
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	default:
-		err = fmt.Errorf("unsupported platform")
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
+func FirstAndLastDayOfMonth(now time.Time) (int, int) {
+	currentYear, currentMonth, _ := now.Date()
+	currentLocation := now.Location()
+	firstOfMonth := time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, currentLocation)
+	lastOfMonth := firstOfMonth.AddDate(0, 1, -1)
+	return firstOfMonth.Day(), lastOfMonth.Day()
 }
 
 func Check(Close chan bool, Error chan error, Events *EventManager.EventList, Table *widget.Table, Player *AudioPlayer.AudioPlayer, cfg *ConfigLoader.Config, requestFocus func(), DisplayError func(error), EventPassed func(*EventManager.Event)) {
@@ -169,21 +157,100 @@ func main() {
 	})
 	GUI_ADD_BUTTON := widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), func() {
 		title := widget.NewEntry()
-		unix := widget.NewEntry()
-		unix.Validator = validation.NewRegexp(`^[0-9]*$`, "Unix Timestamp ONLY have Numbers")
+
+		var NOW time.Time = time.Now()
+		var DATE_Day int = NOW.Day()
+		var DATE_Month string
+		var DATE_Year int = NOW.Year()
+		var DATE_Hour int = NOW.Hour()
+		var DATE_Minute int = NOW.Minute()
+
+		ALL_MONTHS_ARR := []string{"01: January", "02: February", "03: March", "04: April", "05: May", "06: June", "07: July", "08: August", "09: September", "10: October", "11: November", "12: December"}
+		FORM_DATE_Month := widget.NewSelect(ALL_MONTHS_ARR, func(s string) {
+			DATE_Month = strings.Split(s, ": ")[0]
+		})
+
+		FORM_DATE_Month.SetSelected(ALL_MONTHS_ARR[NOW.Month()-1])
+
+		FORM_DATE_Day := widget.NewEntry()
+		FORM_DATE_Day.PlaceHolder = "Day"
+		FORM_DATE_Day.Validator = validation.NewRegexp(`^[0-9]{1,2}$`, "Day can ONLY have TWO DIGITS.")
+		FORM_DATE_Day.SetText(fmt.Sprintf("%v", DATE_Day))
+
+		FORM_DATE_Year := widget.NewEntry()
+		FORM_DATE_Year.PlaceHolder = "Year"
+		FORM_DATE_Year.Validator = validation.NewRegexp(`^[0-9]{4}$`, "Year can ONLY have FOUR DIGITS.")
+		FORM_DATE_Year.SetText(fmt.Sprintf("%v", DATE_Year))
+
+		FORM_DATE_Hour := widget.NewEntry()
+		FORM_DATE_Hour.PlaceHolder = "Hour"
+		FORM_DATE_Hour.Validator = validation.NewRegexp(`^[0-9]{1,2}$`, "Hour can ONLY have TWO DIGITS.")
+		FORM_DATE_Hour.SetText(fmt.Sprintf("%v", DATE_Hour))
+
+		FORM_DATE_Minute := widget.NewEntry()
+		FORM_DATE_Minute.PlaceHolder = "Minute"
+		FORM_DATE_Minute.Validator = validation.NewRegexp(`^[0-9]{1,2}$`, "Minute can ONLY have TWO DIGITS.")
+		FORM_DATE_Minute.SetText(fmt.Sprintf("%v", DATE_Minute))
+
+		// DATE_Year := time.Now().Year()
+
 		items := []*widget.FormItem{
 			widget.NewFormItem("Title", title),
-			widget.NewFormItem("Unix Timestamp", unix),
+			widget.NewFormItem("", widget.NewLabel("")),
+			widget.NewFormItem("Event Date", container.NewAdaptiveGrid(3, FORM_DATE_Month, FORM_DATE_Day, FORM_DATE_Year)),
+			widget.NewFormItem("[24h] Event Time", container.NewHBox(FORM_DATE_Hour, widget.NewLabel(":"), FORM_DATE_Minute)),
 		}
 
 		form := dialog.NewForm("Add Event", "Add Event", "Cancel", items, func(b bool) {
 			if b {
-				i, err := strconv.Atoi(unix.Text)
+
+				DayInt, err := strconv.Atoi(FORM_DATE_Day.Text)
 				if err != nil {
 					dialog.ShowError(err, Window)
 					return
 				}
-				Events.AddEvent(title.Text, int64(i))
+
+				Day := FORM_DATE_Day.Text
+				if DayInt < 10 {
+					Day = fmt.Sprintf("0%v", DayInt)
+				}
+
+				HourInt, err := strconv.Atoi(FORM_DATE_Hour.Text)
+				if err != nil {
+					dialog.ShowError(err, Window)
+					return
+				}
+
+				Hour := FORM_DATE_Hour.Text
+				if HourInt < 10 {
+					Hour = fmt.Sprintf("0%v", HourInt)
+				}
+
+				MinInt, err := strconv.Atoi(FORM_DATE_Minute.Text)
+				if err != nil {
+					dialog.ShowError(err, Window)
+					return
+				}
+
+				Min := FORM_DATE_Minute.Text
+				if MinInt < 10 {
+					Min = fmt.Sprintf("0%v", HourInt)
+				}
+
+				layout := "01/02/2006 15:04:05 MST-0700"
+				date_string := fmt.Sprintf("%v/%v/%v %v:%v:00 GMT-0500", DATE_Month, Day, FORM_DATE_Year.Text, Hour, Min)
+
+				EVNT_TIME, err := time.Parse(layout, date_string)
+
+				if err != nil {
+					dialog.ShowError(err, Window)
+					return
+				}
+
+				fmt.Println(date_string)
+				fmt.Println(EVNT_TIME)
+
+				Events.AddEvent(title.Text, EVNT_TIME.UnixMilli())
 				GUI_TABLE.Refresh()
 			}
 		}, Window)

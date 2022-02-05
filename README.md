@@ -6,7 +6,7 @@
     <a href="https://go.dev/" alt="Made In">
         <img src="https://img.shields.io/badge/MADE IN-Go-blue?style=for-the-badge&logo=go&logoColor=white" /></a>
     <a href="https://github.com/NeutronX-dev/SimpleSchedule/releases/latest" alt="Version">
-        <img src="https://img.shields.io/badge/VERSION-1.0.2-yellow?style=for-the-badge" /></a>
+        <img src="https://img.shields.io/badge/VERSION-1.0.3-yellow?style=for-the-badge" /></a>
     <a href="https://github.com/NeutronX-dev/SimpleSchedule/graphs/contributors" alt="Version">
         <img src="https://img.shields.io/github/contributors/NeutronX-dev/SimpleSchedule?style=for-the-badge" /></a>
 </p>
@@ -14,8 +14,8 @@
 # <p align="center">Preview</p>
 
 ### No Items
-<a src="./logos/screenshot/1.0.2/items.png">
-    <img align="left" height="100" width=100 src="./logos/screenshot/1.0.2/no-items.png">
+<a src="./logos/screenshot/1.0.3/items.png">
+    <img align="left" height="100" width=100 src="./logos/screenshot/1.0.3/no-items.png">
 </a>
 
 #### This is what the program will look like when it is first installed, or you have no upcoming events
@@ -26,8 +26,8 @@
 ---
 
 ### Add Items
-<a src="./logos/screenshot/1.0.2/add-item.png">
-    <img align="right" height="100" width=100 src="./logos/screenshot/1.0.2/add-item.png">
+<a src="./logos/screenshot/1.0.3/add-item.png">
+    <img align="right" height="100" width=100 src="./logos/screenshot/1.0.3/add-item.png">
 </a>
 
 #### This is what the program will look like when you click on the "+ Add" Button
@@ -38,8 +38,8 @@
 ---
 
 ### With Items
-<a src="./logos/screenshot/1.0.2/items.png">
-    <img align="left" height="100" width=100 src="./logos/screenshot/1.0.2/items.png">
+<a src="./logos/screenshot/1.0.3/items.png">
+    <img align="left" height="100" width=100 src="./logos/screenshot/1.0.3/items.png">
 </a>
 
 #### This is what the program will look like when you add an event.
@@ -50,8 +50,8 @@
 ---
 
 ### Event Past
-<a src="./logos/screenshot/1.0.2/event-triggered.png">
-    <img align="right" height="100" width=100 src="./logos/screenshot/1.0.2/event-triggered.png">
+<a src="./logos/screenshot/1.0.3/event-triggered.png">
+    <img align="right" height="100" width=100 src="./logos/screenshot/1.0.3/event-triggered.png">
 </a>
 
 #### This is what the program will look like when the time of an event passed. (as well as a sound effect)
